@@ -132,45 +132,47 @@ int main(void) {
     for (i = 0; i < sizeof(ctaes_cbc_tests) / sizeof(ctaes_cbc_tests[0]); i++) {
         const ctaes_cbc_test* test = &ctaes_cbc_tests[i];
         const int blocks = test->nblocks;
-        unsigned char key[32], iv[16], plain[blocks * 16], cipher[blocks * 16], ciphered[blocks * 16], deciphered[blocks * 16];
+        const int plain_len = blocks * 16;
+        const int cipher_len = blocks * 16;
+        unsigned char key[32], iv[16], plain[plain_len], cipher[cipher_len], ciphered[cipher_len], deciphered[plain_len];
         assert(test->keysize == 128 || test->keysize == 192 || test->keysize == 256);
         from_hex(iv, 16, test->iv);
-        from_hex(plain, blocks * 16, test->plain);
-        from_hex(cipher, blocks * 16, test->cipher);
+        from_hex(plain, plain_len, test->plain);
+        from_hex(cipher, cipher_len, test->cipher);
         switch (test->keysize) {
             case 128: {
                 AES128_CBC_ctx ctx;
                 from_hex(key, 16, test->key);
-                AES128_CBC_init(&ctx, key, iv);
+                AES128_CBC_init(&ctx, key, iv, cipher_len, plain_len);
                 AES128_CBC_encrypt(&ctx, blocks, ciphered, plain);
-                AES128_CBC_init(&ctx, key, iv);
+                AES128_CBC_init(&ctx, key, iv, cipher_len, /*plain_len*/0); // Plaintext length is also unknown before decryption.
                 AES128_CBC_decrypt(&ctx, blocks, deciphered, cipher);
                 break;
             }
             case 192: {
                 AES192_CBC_ctx ctx;
                 from_hex(key, 24, test->key);
-                AES192_CBC_init(&ctx, key, iv);
+                AES192_CBC_init(&ctx, key, iv, cipher_len, plain_len);
                 AES192_CBC_encrypt(&ctx, blocks, ciphered, plain);
-                AES192_CBC_init(&ctx, key, iv);
+                AES192_CBC_init(&ctx, key, iv, cipher_len, /*plain_len*/0); // Plaintext length is also unknown before decryption.
                 AES192_CBC_decrypt(&ctx, blocks, deciphered, cipher);
                 break;
             }
             case 256: {
                 AES256_CBC_ctx ctx;
                 from_hex(key, 32, test->key);
-                AES256_CBC_init(&ctx, key, iv);
+                AES256_CBC_init(&ctx, key, iv, cipher_len, plain_len);
                 AES256_CBC_encrypt(&ctx, blocks, ciphered, plain);
-                AES256_CBC_init(&ctx, key, iv);
+                AES256_CBC_init(&ctx, key, iv, cipher_len, /*plain_len*/0); // Plaintext length is also unknown before decryption.
                 AES256_CBC_decrypt(&ctx, blocks, deciphered, cipher);
                 break;
             }
         }
-        if (memcmp(cipher, ciphered, blocks * 16)) {
+        if (memcmp(cipher, ciphered, cipher_len)) {
             fprintf(stderr, "E(key=\"%s\", plain=\"%s\") != \"%s\"\n", test->key, test->plain, test->cipher);
             fail++;
         }
-        if (memcmp(plain, deciphered, blocks * 16)) {
+        if (memcmp(plain, deciphered, plain_len)) {
             fprintf(stderr, "D(key=\"%s\", cipher=\"%s\") != \"%s\"\n", test->key, test->cipher, test->plain);
             fail++;
         }

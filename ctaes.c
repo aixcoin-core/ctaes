@@ -592,41 +592,47 @@ static void AESCBC_decrypt(const AES_state* rounds, uint8_t* iv, int nk, size_t 
     }
 }
 
-void AES128_CBC_init(AES128_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv) {
+void AES128_CBC_init(AES128_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len) {
     AES128_init(&(ctx->ctx), key16);
-    memcpy(ctx->iv, iv, 16);
+    memcpy(ctx->data.iv, iv, 16);
+    ctx->data.ciphertext_len = cipher_len;
+    ctx->data.plaintext_len = plaintext_len;
 }
 
-void AES192_CBC_init(AES192_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv) {
+void AES192_CBC_init(AES192_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len) {
     AES192_init(&(ctx->ctx), key16);
-    memcpy(ctx->iv, iv, 16);
+    memcpy(ctx->data.iv, iv, 16);
+    ctx->data.ciphertext_len = cipher_len;
+    ctx->data.plaintext_len = plaintext_len;
 }
 
-void AES256_CBC_init(AES256_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv) {
+void AES256_CBC_init(AES256_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len) {
     AES256_init(&(ctx->ctx), key16);
-    memcpy(ctx->iv, iv, 16);
+    memcpy(ctx->data.iv, iv, 16);
+    ctx->data.ciphertext_len = cipher_len;
+    ctx->data.plaintext_len = plaintext_len;
 }
 
 void AES128_CBC_encrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain) {
-    AESCBC_encrypt(ctx->ctx.rk, ctx->iv, 10, blocks, encrypted, plain);
+    AESCBC_encrypt(ctx->ctx.rk, ctx->data.iv, 10, blocks, encrypted, plain);
 }
 
 void AES128_CBC_decrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
-    AESCBC_decrypt(ctx->ctx.rk, ctx->iv, 10, blocks, plain, encrypted);
+    AESCBC_decrypt(ctx->ctx.rk, ctx->data.iv, 10, blocks, plain, encrypted);
 }
 
 void AES192_CBC_encrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain) {
-    AESCBC_encrypt(ctx->ctx.rk, ctx->iv, 12, blocks, encrypted, plain);
+    AESCBC_encrypt(ctx->ctx.rk, ctx->data.iv, 12, blocks, encrypted, plain);
 }
 
 void AES192_CBC_decrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
-    AESCBC_decrypt(ctx->ctx.rk, ctx->iv, 12, blocks, plain, encrypted);
+    AESCBC_decrypt(ctx->ctx.rk, ctx->data.iv, 12, blocks, plain, encrypted);
 }
 
 void AES256_CBC_encrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain) {
-    AESCBC_encrypt(ctx->ctx.rk, ctx->iv, 14, blocks, encrypted, plain);
+    AESCBC_encrypt(ctx->ctx.rk, ctx->data.iv, 14, blocks, encrypted, plain);
 }
 
 void AES256_CBC_decrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
-    AESCBC_decrypt(ctx->ctx.rk, ctx->iv, 14, blocks, plain, encrypted);
+    AESCBC_decrypt(ctx->ctx.rk, ctx->data.iv, 14, blocks, plain, encrypted);
 }

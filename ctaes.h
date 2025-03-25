@@ -15,6 +15,12 @@ typedef struct {
 } AES_state;
 
 typedef struct {
+    uint8_t iv[16];          /* iv is updated after each use */
+    size_t plaintext_len;    /* Length of plaintext */
+    size_t ciphertext_len;   /* Length of ciphertext */
+} AES_CBC_data;
+
+typedef struct {
     AES_state rk[11];
 } AES128_ctx;
 
@@ -28,17 +34,17 @@ typedef struct {
 
 typedef struct {
     AES128_ctx ctx;
-    uint8_t iv[16]; /* iv is updated after each use */
+    AES_CBC_data data;
 } AES128_CBC_ctx;
 
 typedef struct {
     AES192_ctx ctx;
-    uint8_t iv[16]; /* iv is updated after each use */
+    AES_CBC_data data;
 } AES192_CBC_ctx;
 
 typedef struct {
     AES256_ctx ctx;
-    uint8_t iv[16]; /* iv is updated after each use */
+    AES_CBC_data data;
 } AES256_CBC_ctx;
 
 void AES128_init(AES128_ctx* ctx, const unsigned char* key16);
@@ -53,15 +59,15 @@ void AES256_init(AES256_ctx* ctx, const unsigned char* key32);
 void AES256_encrypt(const AES256_ctx* ctx, size_t blocks, unsigned char* cipher16, const unsigned char* plain16);
 void AES256_decrypt(const AES256_ctx* ctx, size_t blocks, unsigned char* plain16, const unsigned char* cipher16);
 
-void AES128_CBC_init(AES128_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv);
+void AES128_CBC_init(AES128_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len);
 void AES128_CBC_encrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain);
 void AES128_CBC_decrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
 
-void AES192_CBC_init(AES192_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv);
+void AES192_CBC_init(AES192_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len);
 void AES192_CBC_encrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain);
 void AES192_CBC_decrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
 
-void AES256_CBC_init(AES256_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv);
+void AES256_CBC_init(AES256_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len);
 void AES256_CBC_encrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain);
 void AES256_CBC_decrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
 
