@@ -7,6 +7,7 @@
 #ifndef CTAES_H
 #define CTAES_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -16,7 +17,8 @@ typedef struct {
 
 typedef struct {
     uint8_t iv[16];          /* iv is updated after each use */
-    size_t plaintext_len;    /* Length of plaintext */
+    size_t plaintext_len;    /* Actual plaintext length */
+    size_t padded_len;       /* Length of plaintext after padding */
     size_t ciphertext_len;   /* Length of ciphertext */
 } AES_CBC_data;
 
@@ -61,14 +63,14 @@ void AES256_decrypt(const AES256_ctx* ctx, size_t blocks, unsigned char* plain16
 
 void AES128_CBC_init(AES128_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len);
 void AES128_CBC_encrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain);
-void AES128_CBC_decrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
+bool AES128_CBC_decrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
 
 void AES192_CBC_init(AES192_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len);
 void AES192_CBC_encrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain);
-void AES192_CBC_decrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
+bool AES192_CBC_decrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
 
 void AES256_CBC_init(AES256_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len);
 void AES256_CBC_encrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain);
-void AES256_CBC_decrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
+bool AES256_CBC_decrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted);
 
 #endif /* CTAES_H */
