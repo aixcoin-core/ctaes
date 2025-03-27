@@ -14,7 +14,10 @@
 
 #include "ctaes.h"
 
+#include <stdbool.h>
 #include <string.h>
+
+#define BLOCK_SIZE 16  // Standard AES block size
 
 /* Slice variable slice_i contains the i'th bit of the 16 state variables in this order:
  *  0  1  2  3
@@ -592,41 +595,101 @@ static void AESCBC_decrypt(const AES_state* rounds, uint8_t* iv, int nk, size_t 
     }
 }
 
-void AES128_CBC_init(AES128_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv) {
+
+/**
+ * Computes the required length of padded plaintext.
+ * Ensures that the output length is always a multiple of BLOCK_SIZE.
+ */
+static inline size_t compute_padded_length(size_t plaintext_len) {
+    size_t pad_size = BLOCK_SIZE - (plaintext_len % BLOCK_SIZE);
+    return plaintext_len + pad_size;
+}
+
+/*
+ * Applies PKCS#7 Padding https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS7 to the input plaintext.
+ */
+static inline void PKCS7_pad(const unsigned char *plain, unsigned char *padded_plain, size_t plaintext_len, size_t padded_len) {
+    size_t pad_size = padded_len - plaintext_len;
+
+    memcpy(padded_plain, plain, plaintext_len);  // Copy original data
+    memset(padded_plain + plaintext_len, pad_size, pad_size);  // Apply padding
+}
+
+/**
+ * Removes PKCS#7 padding from decrypted plaintext and validate padding bytes
+ * Returns true if padding is valid; false otherwise.
+ */
+static inline bool PKCS7_unpad(unsigned char *plaintext, size_t ciphertext_len, size_t* plaintext_len) {
+    if (ciphertext_len == 0 || ciphertext_len % BLOCK_SIZE != 0) return false;  // Invalid length
+
+    size_t pad_size = plaintext[ciphertext_len - 1];  // Last byte indicates padding size
+    if (pad_size == 0 || pad_size > BLOCK_SIZE || pad_size > ciphertext_len) return false;
+
+    // Verify that all padding bytes match pad_size
+    for (size_t i = ciphertext_len - pad_size; i < ciphertext_len; i++) {
+        if (plaintext[i] != pad_size) return false;
+    }
+
+    *plaintext_len = ciphertext_len - pad_size;  // Exclude padding from plaintext
+    return true;
+}
+
+void AES128_CBC_init(AES128_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len) {
     AES128_init(&(ctx->ctx), key16);
-    memcpy(ctx->iv, iv, 16);
+    memcpy(ctx->data.iv, iv, BLOCK_SIZE);
+    ctx->data.ciphertext_len = cipher_len;
+    ctx->data.plaintext_len = plaintext_len;
 }
 
-void AES192_CBC_init(AES192_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv) {
+void AES192_CBC_init(AES192_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len) {
     AES192_init(&(ctx->ctx), key16);
-    memcpy(ctx->iv, iv, 16);
+    memcpy(ctx->data.iv, iv, BLOCK_SIZE);
+    ctx->data.ciphertext_len = cipher_len;
+    ctx->data.plaintext_len = plaintext_len;
 }
 
-void AES256_CBC_init(AES256_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv) {
+void AES256_CBC_init(AES256_CBC_ctx* ctx, const unsigned char* key16, const uint8_t* iv, size_t cipher_len, size_t plaintext_len) {
     AES256_init(&(ctx->ctx), key16);
-    memcpy(ctx->iv, iv, 16);
+    memcpy(ctx->data.iv, iv, BLOCK_SIZE);
+    ctx->data.ciphertext_len = cipher_len;
+    ctx->data.plaintext_len = plaintext_len;
 }
 
 void AES128_CBC_encrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain) {
-    AESCBC_encrypt(ctx->ctx.rk, ctx->iv, 10, blocks, encrypted, plain);
+    ctx->data.padded_len = compute_padded_length(ctx->data.plaintext_len);
+    unsigned char padded_plain[ctx->data.padded_len]; // Allocate based on computed padding
+    PKCS7_pad(plain, padded_plain, ctx->data.plaintext_len, ctx->data.padded_len);
+    ctx->data.ciphertext_len = ctx->data.padded_len;
+    AESCBC_encrypt(ctx->ctx.rk, ctx->data.iv, 10, blocks, encrypted, padded_plain);
 }
 
-void AES128_CBC_decrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
-    AESCBC_decrypt(ctx->ctx.rk, ctx->iv, 10, blocks, plain, encrypted);
+bool AES128_CBC_decrypt(AES128_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
+    AESCBC_decrypt(ctx->ctx.rk, ctx->data.iv, 10, blocks, plain, encrypted);
+    return PKCS7_unpad(plain, ctx->data.ciphertext_len, &ctx->data.plaintext_len);
 }
 
 void AES192_CBC_encrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain) {
-    AESCBC_encrypt(ctx->ctx.rk, ctx->iv, 12, blocks, encrypted, plain);
+    ctx->data.padded_len = compute_padded_length(ctx->data.plaintext_len);
+    unsigned char padded_plain[ctx->data.padded_len]; // Allocate based on computed padding
+    PKCS7_pad(plain, padded_plain, ctx->data.plaintext_len, ctx->data.padded_len);
+    ctx->data.ciphertext_len = ctx->data.padded_len;
+    AESCBC_encrypt(ctx->ctx.rk, ctx->data.iv, 12, blocks, encrypted, padded_plain);
 }
 
-void AES192_CBC_decrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
-    AESCBC_decrypt(ctx->ctx.rk, ctx->iv, 12, blocks, plain, encrypted);
+bool AES192_CBC_decrypt(AES192_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
+    AESCBC_decrypt(ctx->ctx.rk, ctx->data.iv, 12, blocks, plain, encrypted);
+    return PKCS7_unpad(plain, ctx->data.ciphertext_len, &ctx->data.plaintext_len);
 }
 
 void AES256_CBC_encrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* encrypted, const unsigned char* plain) {
-    AESCBC_encrypt(ctx->ctx.rk, ctx->iv, 14, blocks, encrypted, plain);
+    ctx->data.padded_len = compute_padded_length(ctx->data.plaintext_len);
+    unsigned char padded_plain[ctx->data.padded_len]; // Allocate based on computed padding
+    PKCS7_pad(plain, padded_plain, ctx->data.plaintext_len, ctx->data.padded_len);
+    ctx->data.ciphertext_len = ctx->data.padded_len;
+    AESCBC_encrypt(ctx->ctx.rk, ctx->data.iv, 14, blocks, encrypted, padded_plain);
 }
 
-void AES256_CBC_decrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
-    AESCBC_decrypt(ctx->ctx.rk, ctx->iv, 14, blocks, plain, encrypted);
+bool AES256_CBC_decrypt(AES256_CBC_ctx* ctx, size_t blocks, unsigned char* plain, const unsigned char *encrypted) {
+    AESCBC_decrypt(ctx->ctx.rk, ctx->data.iv, 14, blocks, plain, encrypted);
+    return PKCS7_unpad(plain, ctx->data.ciphertext_len, &ctx->data.plaintext_len);
 }

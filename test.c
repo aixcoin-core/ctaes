@@ -6,6 +6,7 @@
 
 #include "ctaes.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -21,7 +22,6 @@ typedef struct {
     int keysize;
     const char* key;
     const char* iv;
-    int nblocks;
     const char* plain;
     const char* cipher;
 } ctaes_cbc_test;
@@ -50,19 +50,46 @@ static const ctaes_test ctaes_tests[] = {
 static const ctaes_cbc_test ctaes_cbc_tests[] = {
     /* AES-CBC test vectors from NIST sp800-38a. */
     {
-        128, "2b7e151628aed2a6abf7158809cf4f3c", "000102030405060708090a0b0c0d0e0f", 4,
+        // Full block length will pad 1 more block
+        128, "2b7e151628aed2a6abf7158809cf4f3c", "000102030405060708090a0b0c0d0e0f",
         "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710",
-        "7649abac8119b246cee98e9b12e9197d5086cb9b507219ee95db113a917678b273bed6b8e3c1743b7116e69e222295163ff1caa1681fac09120eca307586e1a7"
+        "a12b0386d815a2c18e9c23b63a7adbf2fd5576ec89b64bef8fff20c67a2db525d6ddfa8efd7b0fcd869ffe84564e603e6df965ae0dc86e097bdf29bfaa45cd57718fb6e84747912749339489f2c17c4d"
     },
     {
-        192, "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b", "000102030405060708090a0b0c0d0e0f", 4,
-        "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710",
-        "4f021db243bc633d7178183a9fa071e8b4d9ada9ad7dedf4e5e738763f69145a571b242012fb7ae07fa9baac3df102e008b0e27988598881d920a9e64f5615cd"
+        // Incomplete block length pad will pad the remaining bytes to fill block
+        128, "2b7e151628aed2a6abf7158809cf4f3c", "000102030405060708090a0b0c0d0e0f",
+        "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b41",
+        "a12b0386d815a2c18e9c23b63a7adbf2fd5576ec89b64bef8fff20c67a2db525d6ddfa8efd7b0fcd869ffe84564e603e3501ddd9be60093899819bbc115cfe86"
     },
     {
-        256, "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4", "000102030405060708090a0b0c0d0e0f", 4,
+        // Full block length will pad 1 more block
+        192, "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b", "000102030405060708090a0b0c0d0e0f",
         "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710",
-        "f58c4c04d6e5f1ba779eabfb5f7bfbd69cfc4e967edb808d679f777bc6702c7d39f23369a9d9bacfa530e26304231461b2eb05e2c39be9fcda6c19078c6a9d1b"
+        "17701a9d29c91a94ceed723c34e87abe1c96845ca8b7e8586dfef2fa6bed24098a52cee8d76db67bfde21553d31c2833f77eb59500ac4903bc7076b18465d0ea7e38ba13918e47c316e53ee336370345"
+    },
+    {
+        // Incomplete block length pad will pad the remaining bytes to fill block
+        192, "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b", "000102030405060708090a0b0c0d0e0f",
+        "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417b",
+        "17701a9d29c91a94ceed723c34e87abe1c96845ca8b7e8586dfef2fa6bed24098a52cee8d76db67bfde21553d31c28339ad0a856f760c64a6bbb3df2dbecdb53"
+    },
+    {
+        // Full block length will pad 1 more block
+        256, "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4", "000102030405060708090a0b0c0d0e0f",
+        "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445",
+        "f58c4c04d6e5f1ba779eabfb5f7bfbd69cfc4e967edb808d679f777bc6702c7d39f23369a9d9bacfa530e26304231461164e1f6488d14e7407e98486d3da86f0"
+    },
+    {
+        // Incomplete block length pad will pad the remaining bytes to fill block
+        256, "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4", "000102030405060708090a0b0c0d0e0f",
+        "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac",
+        "f58c4c04d6e5f1ba779eabfb5f7bfbd68d99fefe25debc6c0b1eedaac5e98e7e"
+    },
+    /* AES-CBC padded test vector randomly generated. */
+    {
+        128, "d2e4c2c3b3c1fe4878a7bf99807ffe2f", "14e7903c078a28514885abac58618a30",
+        "5468697320697320612036332d62797465206c6f6e6720706c61696e74657874206578616d706c6520666f72204145532d434243206d6f6465212121",
+        "35866e380595f69503f3700004d2e57a732522827550158b0e64ee9307d8d58477699f0706f33690aed4147987f9ab8485611ba9662bf2e41aefa170810f625d"
     }
 };
 
@@ -130,47 +157,83 @@ int main(void) {
         }
     }
     for (i = 0; i < sizeof(ctaes_cbc_tests) / sizeof(ctaes_cbc_tests[0]); i++) {
+        // Define AES block size (16 bytes for AES).
+        const int block_size = 16;
+
+        // Retrieve the test case.
         const ctaes_cbc_test* test = &ctaes_cbc_tests[i];
-        unsigned char key[32], iv[16], plain[4 * 16], cipher[4 * 16], ciphered[4 * 16], deciphered[4 * 16];
+
+        // Compute plaintext length (hex string length divided by 2).
+        const int plain_len = strlen(test->plain) / 2;
+
+        // Compute the padded plaintext length for PKCS#7.
+        // If plaintext is already a multiple of block_size, an extra block is needed.
+        const int padded_plain_len = (plain_len % block_size == 0) 
+                                    ? (plain_len + block_size) 
+                                    : (plain_len + (block_size - (plain_len % block_size)));
+
+        // Compute the number of AES blocks.
+        const int blocks = padded_plain_len / block_size;
+
+        // Compute ciphertext length (hex string length divided by 2).
+        const int cipher_len = strlen(test->cipher) / 2;
+
+        // Allocate buffers for encryption/decryption.
+        unsigned char key[32];                      // Key buffer (up to 256-bit keys, i.e., 32 bytes).
+        unsigned char iv[block_size];               // Initialization vector (IV).
+        unsigned char plain[plain_len];             // Buffer to store original plaintext.
+        unsigned char cipher[cipher_len];           // Expected ciphertext.
+        unsigned char ciphered[padded_plain_len];   // Encrypted ciphertext (including padding).
+        unsigned char deciphered[padded_plain_len]; // Decrypted plaintext (including padding).
+
+        // Ensure key size is valid (AES supports only 128, 192, or 256 bits).
         assert(test->keysize == 128 || test->keysize == 192 || test->keysize == 256);
-        assert(test->nblocks == 4);
-        from_hex(iv, 16, test->iv);
-        from_hex(plain, test->nblocks * 16, test->plain);
-        from_hex(cipher, test->nblocks * 16, test->cipher);
+
+        // Convert hex-encoded test data into byte arrays.
+        from_hex(iv, block_size, test->iv);          // Convert IV from hex string to byte array.
+        from_hex(plain, plain_len, test->plain);     // Convert plaintext from hex string to byte array.
+        from_hex(cipher, cipher_len, test->cipher);  // Convert expected ciphertext from hex string to byte array.
+
         switch (test->keysize) {
             case 128: {
                 AES128_CBC_ctx ctx;
-                from_hex(key, 16, test->key);
-                AES128_CBC_init(&ctx, key, iv);
-                AES128_CBC_encrypt(&ctx, test->nblocks, ciphered, plain);
-                AES128_CBC_init(&ctx, key, iv);
-                AES128_CBC_decrypt(&ctx, test->nblocks, deciphered, cipher);
+                AES128_CBC_init(&ctx, key, iv, /*cipher_len*/0, plain_len);
+                AES128_CBC_encrypt(&ctx, blocks, ciphered, plain);
+
+                // Initialize decryption with the ciphertext length.
+                AES128_CBC_init(&ctx, key, iv, ctx.data.ciphertext_len, /*plain_len*/0);
+                assert(AES128_CBC_decrypt(&ctx, blocks, deciphered, ciphered));
+                assert(ctx.data.plaintext_len == plain_len);
                 break;
             }
             case 192: {
                 AES192_CBC_ctx ctx;
-                from_hex(key, 24, test->key);
-                AES192_CBC_init(&ctx, key, iv);
-                AES192_CBC_encrypt(&ctx, test->nblocks, ciphered, plain);
-                AES192_CBC_init(&ctx, key, iv);
-                AES192_CBC_decrypt(&ctx, test->nblocks, deciphered, cipher);
+                AES192_CBC_init(&ctx, key, iv, /*cipher_len*/0, plain_len);
+                AES192_CBC_encrypt(&ctx, blocks, ciphered, plain);
+
+                // Initialize decryption with the ciphertext length.
+                AES192_CBC_init(&ctx, key, iv, ctx.data.ciphertext_len, /*plain_len*/0);
+                assert(AES192_CBC_decrypt(&ctx, blocks, deciphered, ciphered));
+                assert(ctx.data.plaintext_len == plain_len);
                 break;
             }
             case 256: {
                 AES256_CBC_ctx ctx;
-                from_hex(key, 32, test->key);
-                AES256_CBC_init(&ctx, key, iv);
-                AES256_CBC_encrypt(&ctx, test->nblocks, ciphered, plain);
-                AES256_CBC_init(&ctx, key, iv);
-                AES256_CBC_decrypt(&ctx, test->nblocks, deciphered, cipher);
+                AES256_CBC_init(&ctx, key, iv, /*cipher_len*/0, plain_len);
+                AES256_CBC_encrypt(&ctx, blocks, ciphered, plain);
+
+                // Initialize decryption with the ciphertext length.
+                AES256_CBC_init(&ctx, key, iv, ctx.data.ciphertext_len, /*plain_len*/0);
+                assert(AES256_CBC_decrypt(&ctx, blocks, deciphered, ciphered));
+                assert(ctx.data.plaintext_len == plain_len);
                 break;
             }
         }
-        if (memcmp(cipher, ciphered, test->nblocks * 16)) {
+        if (memcmp(cipher, ciphered, cipher_len)) {
             fprintf(stderr, "E(key=\"%s\", plain=\"%s\") != \"%s\"\n", test->key, test->plain, test->cipher);
             fail++;
         }
-        if (memcmp(plain, deciphered, test->nblocks * 16)) {
+        if (memcmp(plain, deciphered, plain_len)) {
             fprintf(stderr, "D(key=\"%s\", cipher=\"%s\") != \"%s\"\n", test->key, test->cipher, test->plain);
             fail++;
         }
